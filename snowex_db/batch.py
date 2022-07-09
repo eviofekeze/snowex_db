@@ -197,10 +197,10 @@ class UploadProfileBatch(BatchBase):
             smp_file = True
             self.meta['header_sep'] = ':'
 
-        # Loop over all the ssa files and upload them
         if self.n_files != -1:
-            self.filenames[0:self.n_files]
+            self.filenames = self.filenames[0:self.n_files]
 
+        # Loop over all the files and upload them
         for i, f in enumerate(self.filenames):
             meta = self.meta.copy()
 

@@ -212,6 +212,8 @@ class UploadProfileData:
         if self.data_names:
             if not df.empty:
                 self.log.debug('Profile Submitted!\n')
+            else:
+                self.log.debug('No data uploaed!\n')
 
 
 class PointDataCSV(object):

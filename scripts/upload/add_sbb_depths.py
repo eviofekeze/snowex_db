@@ -1,5 +1,5 @@
 """
-Uploads the Snowex SBB 2017 depths to the database
+Uploads the Snowex 2017 manual depths to the database
 
 1. Data must be downloaded via sh ../download/download_nsidc.sh
 2A. python run.py # To run all together all at once
@@ -15,34 +15,42 @@ from snowex_db.upload import *
 
 
 def main():
-    # Site name
-    start = time.time()
-    site_name = 'Senator Beck'
-    timezone = 'US/Mountain'
 
     # Read in the Grand Mesa Snow Depths Data
-    base = '/home/micah/projects/m3works/basins/testing/senator_beck/topo/validation/SNOWEX/SNEX17_SD.001/2017.02.06'
+    data_dir = abspath('../download/data/SNOWEX/SNEX17_SD.001/2017.02.06/')
+    meta = [('Grand Mesa', 'GM', 26912), ('Senator Beck', 'SBB', 26913)]
 
-    # Start the Database
-    db_name = 'localhost/snowex'
-    engine, session = get_db(db_name, credentials='./credentials.json')
-    csvs = set(glob.glob(join(base, '*SD_SBB*v01*.csv'))) - set(glob.glob(join(base, '*reference*.csv')))
-    print(csvs)
     errors = 0
 
-    for f in csvs:
-        csv = PointDataCSV(
-            f,
-            depth_is_metadata=False,
-            units='cm',
-            site_name=site_name,
-            in_timezone=timezone,
-            epsg=26913,
-            doi="https://doi.org/10.5067/WKC6VFMT7JTF")
+    db_name = 'localhost/snowex'
+    engine, session = get_db(db_name, credentials='./credentials.json')
 
-        csv.submit(session)
-        errors += len(csv.errors)
+    refs = glob.glob(join(data_dir, '*reference*.csv'))
+    comments = glob.glob(join(data_dir, '*comments*.csv'))
 
+    for site_name, abbrev, epsg in meta:
+        standard_probe = glob.glob(join(data_dir, f'*SD_{abbrev}*transect_2017*.csv'))
+        standard_probe = list(set(standard_probe) - set(refs) - set(comments))
+
+        magna_probes = glob.glob(join(data_dir, f'*SD_{abbrev}*transect_MP_*.csv'))
+        magna_probes = list(set(magna_probes) - set(refs) - set(comments))
+
+        # Submit the magnaprobes
+        for files, instrument in [(magna_probes, 'magnaprobe'), (standard_probe, 'standard probe')]:
+            for f in files:
+                csv = PointDataCSV(
+                    f,
+                    depth_is_metadata=False,
+                    units='cm',
+                    site_name=site_name,
+                    in_timezone='US/Mountain',
+                    epsg=epsg,
+                    doi="https://doi.org/10.5067/WKC6VFMT7JTF",
+                    instrument=instrument
+                )
+                csv.submit(session)
+                errors += len(csv.errors)
+    session.close()
     return errors
 
 

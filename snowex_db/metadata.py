@@ -333,7 +333,8 @@ class DataHeader(object):
               'depth_m': 'depth',
               'date_dd_mmm_yy': 'date',
               'time_gmt': 'time',
-              'elev_m': 'elevation'
+              'elev_m': 'elevation',
+              'snow_depth': 'depth'
               }
 
     # Known possible profile types anything not in here will throw an error
