@@ -5,65 +5,109 @@ Script is used to confirm uploads to the db were successful
 from snowexsql.db import get_db
 from snowexsql.data import SiteData, PointData, LayerData, ImageData
 import pytest
+from sqlalchemy.sql import func
+
 
 @pytest.fixture(scope='session')
 def session():
-    db = 'db.snowexdata.org/snowex'
-    engine, session = get_db(db, credentials='credentials.json')
+    db = 'snow:hackweek@db.snowexdata.org/snowex'
+    engine, session = get_db(db)
     yield session
     session.close()
 
 
+def build_query(session, base, filters, use_distinct):
+    """
+    Function to return a query.
+    Args:
+        base: Args to the query function e.g. ImageData.raster
+        filters: List of boolean actions to chain filter a query
+        use_distinct: Bool whether to use distinct at the end of a query
+    Returns:
+        qry: Sqlaclchemy qery object
+    """
+    qry = session.query(base)
 
-@pytest.mark.parametrize('observer, datatype, expected_tiles', [
-    # 50m swe product for grand mesa
-    ('ASO Inc.', 'swe', 2),
-    # 3m depth product for a 2 day flight
-    ('ASO Inc.', 'depth', 256),
-    # USGS Snow off DEM
-    ('USGS', 'DEM', 1713),
+    for f in filters:
+        qry = qry.filter(f)
+    if use_distinct:
+        qry = qry.distinct().order_by(base)
+    return qry
+
+
+@pytest.mark.parametrize("base, filters, use_distinct, execute, expected", [
+    (ImageData.raster, [ImageData.type == 'swe'], False, 'count', 4),
+    (ImageData.raster, [ImageData.type == 'depth'], False, 'count', 840),
+    (ImageData.type, [], True, 'all', [('depth',), ('swe',)])
 ])
-def test_imagedata_uploads(session, observer, datatype, expected_tiles):
+def test_add_aso(session, base, filters, use_distinct, execute, expected):
     """
-    Check the number of tiles in the DB is what is expected
+    Test some attributes of the ASO uploader script
     """
-    qry = session.query(ImageData.raster).filter(ImageData.type == datatype)
-    ntiles = qry.filter(ImageData.observers == observer).count()
-    assert ntiles == expected_tiles
+    # Always use ASO
+    filters.insert(0, ImageData.observers == 'ASO Inc.')
+    qry = build_query(session, base, filters, use_distinct)
+    results = getattr(qry, execute)()
 
-@pytest.mark.parametrize('data_type, expected', [
-    # Number of GPR points
-    ('two_way_travel', 1264905),
+    assert results == expected
+
+
+@pytest.mark.parametrize("base, filters, use_distinct, execute, expected", [
+    (PointData.value, [PointData.type == 'two_way_travel'], False, 'count', 1264905),
+    (PointData.type, [], True, 'all', [('depth',), ('swe',), ('two_way_travel',)]),
 ])
-def test_gpr_upload(session, data_type, expected):
+def test_add_bsu_gpr(session, base, filters, use_distinct, execute, expected):
     """
-    Confirm the USGS snow off dem was uploaded correctly
+    Test some results of the BSU GPR uploader script
     """
-    n_pnts = session.query(PointData).filter(PointData.type == data_type).count()
-    assert n_pnts == expected
+    # Always use ASO
+    filters.insert(0, PointData.observers == 'Tate Meehan')
+    qry = build_query(session, base, filters, use_distinct)
+    results = getattr(qry, execute)()
+
+    assert results == expected
 
 
-@pytest.mark.parametrize('data_type, expected', [
-    # Number of unique pits with hand hardness
-    ('hand_hardness', 155),
+@pytest.mark.parametrize("base, filters, use_distinct, execute, expected", [
+    (PointData.value, [PointData.type == 'depth'], False, 'count', 155440),
+    (PointData.type, [], True, 'all', [('depth',), ('swe',), ('two_way_travel',)]),
 ])
-def test_profiles_upload(session, data_type, expected):
+def test_add_csu_gpr(session, base, filters, use_distinct, execute, expected):
     """
-    Confirm the snow pits were uploaded to layer data
+    Test some results of the CSU GPR uploader script
     """
-    n_pnts = session.query(LayerData.geom).filter(LayerData.type == data_type).distinct().count()
-    assert n_pnts == expected
+    # Always use ASO
+    filters.insert(0, PointData.observers == 'Randall Bonnell')
+    qry = build_query(session, base, filters, use_distinct)
+    results = getattr(qry, execute)()
+
+    assert results == expected
 
 
-def test_site_details_upload(session):
+@pytest.mark.parametrize("base, filters, use_distinct, execute, expected", [
+    (ImageData.raster, [ImageData.type == 'dem'], False, 'count', 1),
+])
+def test_add_gm_snow_off(session, base, filters, use_distinct, execute, expected):
     """
-    Confirm the site details wereu uploaded
+    Test some attributes of the ASO uploader script
     """
-    n_pnts = session.query(SiteData.site_id).count()
-    assert n_pnts == 155
+    # Always use ASO
+    filters.insert(0, ImageData.observers == 'USGS')
+    qry = build_query(session, base, filters, use_distinct)
+    results = getattr(qry, execute)()
 
-@pytest.mark.parametrize
-def test_add_downsampled_smp(session):
+    assert results == expected
+
+@pytest.mark.parametrize("base, filters, use_distinct, execute, expected", [
+    # Confirm this pit id has only 1 set of density profiles (9 layers)
+    (LayerData.value, [LayerData.type == 'density', LayerData.pit_id == 'COGMTLSFL2A_20200210'], False, 'count', 9),
+])
+def test_add_iop_pits(session, base, filters, use_distinct, execute, expected):
     """
-    Test the downsampled smp profiles are uploaded
+    Test to validate the upload of the IOP Pits
     """
+    filters.insert(0, LayerData.site_name == 'Grand Mesa')
+    qry = build_query(session, base, filters, use_distinct)
+    results = getattr(qry, execute)()
+
+    assert results == expected
