@@ -98,15 +98,32 @@ def test_add_gm_snow_off(session, base, filters, use_distinct, execute, expected
 
     assert results == expected
 
+
 @pytest.mark.parametrize("base, filters, use_distinct, execute, expected", [
     # Confirm this pit id has only 1 set of density profiles (9 layers)
-    (LayerData.value, [LayerData.type == 'density', LayerData.pit_id == 'COGMTLSFL2A_20200210'], False, 'count', 9),
+    (LayerData.value, [LayerData.type == 'density', LayerData.pit_id == 'COGMTLSFL2A_20200210'], False, 'count', 18), # There is double density profiles 1 for density csv and the other for LWC
 ])
 def test_add_iop_pits(session, base, filters, use_distinct, execute, expected):
     """
     Test to validate the upload of the IOP Pits
     """
     filters.insert(0, LayerData.site_name == 'Grand Mesa')
+    qry = build_query(session, base, filters, use_distinct)
+    results = getattr(qry, execute)()
+
+    assert results == expected
+
+
+@pytest.mark.parametrize("base, filters, use_distinct, execute, expected", [
+    # Confirm this pit id has only 1 set of density profiles (9 layers)
+    (PointData.utm_zone, [], True, 'all', [(12,), (13,)]),
+])
+def test_add_snow_poles(session, base, filters, use_distinct, execute, expected):
+    """
+    Test to validate the upload of the the camera timeseries
+    """
+    filters.insert(0, PointData.site_name == 'Grand Mesa')
+    filters.insert(1, PointData.instrument == 'camera')
     qry = build_query(session, base, filters, use_distinct)
     results = getattr(qry, execute)()
 
