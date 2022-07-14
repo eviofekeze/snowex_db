@@ -4,6 +4,8 @@ Uploads the SnowEx 2020 depths derived from cameras looking at poles to the data
 1. Downloaded from Catherine Breen email. Later to be updated with a NSIDC DOI
 2A. python run.py # To run all together all at once
 2B. python add_snow_poles.py # To run individually
+
+doi does exist but file has an error, using local file as preliminary.
 """
 
 import time
@@ -15,7 +17,7 @@ from snowex_db.upload import *
 
 def main():
     # Read in the Grand Mesa Snow Depths Data
-    f = abspath('../download/data/SNOWEX/SNEX20_SD_TLI.001/2019.09.29/SNEX20_SD_TLI_clean.csv')
+    f = abspath('../download/data/SnowEx2020.snowdepth.snowstakes.alldepths_clean_v10.csv')
 
     # Start the Database
     db_name = 'localhost/snowex'
@@ -29,8 +31,10 @@ def main():
         observers='Catherine Breen',
         instrument='camera',
         in_timezone='MST',
-        doi='https://doi.org/10.5067/14EU7OLF051V',
-        epsg=26912)
+        doi=None, #'https://doi.org/10.5067/14EU7OLF051V',
+        epsg=26912,
+        utm_zone='12'  # Necessary since a couple points are just over the line for 13
+        )
 
     csv.submit(session)
     errors = len(csv.errors)
