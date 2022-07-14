@@ -20,35 +20,38 @@ def main():
     # Obtain a list of Grand mesa pits
     data_dir = abspath('../download/data/SNOWEX/SNEX20_GM_SP.001')
 
-    # Grab all the csvs in the pits folder
-    filenames = glob.glob(join(data_dir, '*/*.csv'))
-
     # Grab all the site details files
     sites = glob.glob(join(data_dir, '*/*site*.csv'))
     summaries = glob.glob(join(data_dir, '*/*Summary*.csv'))
 
-    # Remove the site details from the total file list to get only the
-    profiles = list(set(filenames) - set(sites) - set(summaries))
+    # Match up the keywords with instruments
+    meta = [('temperature', 'digital thermometer'), ('density', 'snowmetrics density sampler'),
+            ('stratigraphy', 'manual'),
+            ('LWC', 'A2 photonics LWC sensor')]
+    for kw, instrument in meta:
 
-    # Submit all profiles
-    b = UploadProfileBatch(
-        filenames=profiles,
-        debug=debug,
-        doi=doi,
-        in_timezone='MST'
-    )
-    b.push()
+        # Remove the site details from the profiles of interest
+        profiles = glob.glob(join(data_dir, f'*/*{kw}*.csv'))
 
-    # Upload all the site data
-    s = UploadSiteDetailsBatch(
-        sites,
-        debug=debug,
-        doi=doi,
-        in_timezone='MST'
-    )
-    s.push()
+        b = UploadProfileBatch(
+            filenames=profiles,
+            debug=debug,
+            doi=doi,
+            instrument=instrument,
+            in_timezone='MST'
+        )
+        b.push()
 
-    return len(b.errors) + len(s.errors)
+    # # Upload all the site data
+    # s = UploadSiteDetailsBatch(
+    #     sites,
+    #     debug=debug,
+    #     doi=doi,
+    #     in_timezone='MST'
+    # )
+    # s.push()
+
+    return len(b.errors)  # + len(s.errors)
 
 
 if __name__ == '__main__':
